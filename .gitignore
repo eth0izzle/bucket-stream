@@ -1,0 +1,4 @@
+__pycache__
+.idea
+.virtualenv
+.DS_Store

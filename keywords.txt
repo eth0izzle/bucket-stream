@@ -1,0 +1,16 @@
+password
+wp-config
+backup
+confidential
+.apk
+.sql
+.psql
+.zip
+.tar
+.bak
+.xls
+.csv
+.log
+.inc.php
+.ova
+.vmdk
