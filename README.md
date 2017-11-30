@@ -6,7 +6,7 @@ This tool simply listens to various certificate transparency logs (via certstrea
 
 ![Demo](https://i.imgur.com/5S92YXI.png)
 
-**Be responsible**. I mainly created this tool to highlight the risks associated with public S3 buckets and to put a different spin on the usual dictionary-based attacks. Some quick tips if you use S3 buckets:
+**Be responsible**. I mainly created this tool to highlight the risks associated with public S3 buckets and to put a different spin on the usual dictionary based attacks. Some quick tips if you use S3 buckets:
 
 1) Randomise your bucket names! There is no need to use `company-backup.s3.amazonaws.com`.
 2) Set appropriate permissions and audit regularly. If possible create two buckets - one for your public assets and another for private data.
@@ -25,11 +25,11 @@ Python 3.4+ and pip3 are required. Then just:
 
 ## Usage
 
-Simply run `python bucket-stream.py`.
+Simply run `python3 bucket-stream.py`.
 
 If you provide AWS access and secret keys in `config.yaml` Bucket Stream will attempt to identity the buckets owner.
 
-    usage: python bucket-stream.py
+    usage: python3 bucket-stream.py
 
     Find interesting Amazon S3 Buckets by watching certificate transparency logs.
 
@@ -44,11 +44,13 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
 
 ## F.A.Qs
 
-**Nothing appears to be happening**
-Patience! Sometimes certificate transparency logs can be quiet for a few minutes.
+- **Nothing appears to be happening**
 
-**I found something highly confidential**
-**Report it** - please! You can usually figure out the owner from the bucket name or by doing some quick reconnaissance. Failing that contact Amazon's support teams.
+   Patience! Sometimes certificate transparency logs can be quiet for a few minutes.
+
+- **I found something highly confidential**
+
+   **Report it** - please! You can usually figure out the owner from the bucket name or by doing some quick reconnaissance. Failing that contact Amazon's support teams.
 
 ## Contributing
 
