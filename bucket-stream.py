@@ -1,4 +1,4 @@
-import argparse, logging
+import os, argparse, logging
 import yaml
 import boto3
 import certstream
@@ -25,8 +25,6 @@ class BucketWorker(Thread):
         self.q = q
         self.session = requests.Session()
         self.session.mount("http://", HTTPAdapter(pool_connections=ARGS.threads, pool_maxsize=QUEUE_SIZE, max_retries=0))
-        self.log = ARGS.log_to_file
-        self.filename = "bucket-log.log"
 
         super().__init__(*args, **kwargs)
 
@@ -54,9 +52,9 @@ class BucketWorker(Thread):
                                     pass
 
                             print("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""))
-                            if self.log:
-                                with open(self.filename, "a+") as log:
-                                    log.write("%s\n" % new_bucket_url)
+                            if ARGS.log_to_file:
+                                with open("buckets.log", "a+") as log:
+                                    log.write("%s%s" % (new_bucket_url, os.linesep))
                             FOUND_COUNT += 1
             except:
                 pass
@@ -113,7 +111,7 @@ def main():
     parser.add_argument("-t", "--threads", metavar="", type=int, dest="threads", default=20,
                         help="Number of threads to spawn. More threads = more power.")
     parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
-                        help="Log found buckets to a log file")
+                        help="Log found buckets to a file buckets.log")
 
     parser.parse_args(namespace=ARGS)
     logging.disable(logging.WARNING)
