@@ -1,5 +1,5 @@
 __pycache__
 .idea
-bucket-log.log
+buckets.log
 .virtualenv
 .DS_Store
