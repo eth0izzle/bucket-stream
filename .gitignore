@@ -1,4 +1,5 @@
 __pycache__
 .idea
+bucket-log.log
 .virtualenv
 .DS_Store
