@@ -1,4 +1,4 @@
-import argparse, logging
+import os, argparse, logging
 import yaml
 import boto3
 import certstream
@@ -52,6 +52,9 @@ class BucketWorker(Thread):
                                     pass
 
                             print("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""))
+                            if ARGS.log_to_file:
+                                with open("buckets.log", "a+") as log:
+                                    log.write("%s%s" % (new_bucket_url, os.linesep))
                             FOUND_COUNT += 1
             except:
                 pass
@@ -113,6 +116,8 @@ def main():
                         help="Skip certs (and thus listed domains) issued by Let's Encrypt CA")
     parser.add_argument("-t", "--threads", metavar="", type=int, dest="threads", default=20,
                         help="Number of threads to spawn. More threads = more power.")
+    parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
+                        help="Log found buckets to a file buckets.log")
 
     parser.parse_args(namespace=ARGS)
     logging.disable(logging.WARNING)
