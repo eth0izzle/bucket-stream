@@ -7,9 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from queue import Queue
 from threading import Thread
-import colored
-from colored import stylize
-
+import termcolor 
 
 S3_URL = "http://s3-1-w.amazonaws.com"
 BUCKET_HOST = "%s.s3.amazonaws.com"
@@ -54,7 +52,10 @@ class BucketWorker(Thread):
                                 except:
                                     pass
 
-                            print(stylize("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""), colored.fg("green_1")))
+                            # print("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""))
+                            BUCKET_URI = termcolor.colored("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""), 'green', attrs=['bold'])
+                            print(BUCKET_URI)
+
                             if ARGS.log_to_file:
                                 with open("buckets.log", "a+") as log:
                                     log.write("%s%s" % (new_bucket_url, os.linesep))
@@ -86,7 +87,8 @@ def listen(message, context):
                         BUCKET_QUEUE.put(bucket_url)
 
     if len(CHECKED_BUCKETS) % 100 == 0:
-        print(stylize("%s buckets checked. %s buckets found" % (len(CHECKED_BUCKETS), FOUND_COUNT), colored.fg("dark_green_sea")))
+        CHECKED_BUCKETS_COUNT = termcolor.colored('%s buckets checked. %s buckets found' % (len(CHECKED_BUCKETS), FOUND_COUNT), 'cyan')
+        print(CHECKED_BUCKETS_COUNT)
 
 
 def get_permutations(parsed_domain):
@@ -128,10 +130,12 @@ def main():
     for _ in range(1, ARGS.threads):
         BucketWorker(BUCKET_QUEUE).start()
 
-    print(stylize("Waiting for certstream events - this could take a few minutes to queue up...", colored.fg("orange_red_1")))
+    INTRO_MSG = termcolor.colored('Waiting for certstream events - this could take a few minutes to queue up...', 'magenta', attrs=['bold'])
+    print(INTRO_MSG)
     certstream.listen_for_events(listen) #blocking
 
-    print(stylize("Qutting - waiting for threads to finish up...", colored.fg("orange_red_1")))
+    EXIT_MSG = termcolor.colored('Qutting - waiting for threads to finish up...', 'magenta', attrs=['bold'])
+    print(EXIT_MSG)
     BUCKET_QUEUE.join()
 
 
