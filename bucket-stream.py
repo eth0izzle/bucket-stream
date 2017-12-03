@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from queue import Queue
 from threading import Thread
+from termcolor import colored
 
 S3_URL = "http://s3-1-w.amazonaws.com"
 BUCKET_HOST = "%s.s3.amazonaws.com"
@@ -43,12 +44,14 @@ class BucketWorker(Thread):
 
                         if bucket_response.status_code == 200:
                             bucket_owner = self.get_bucket_owner(bucket_name)
-                            print("%s is public%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
+                            BUCKET_RESULT = colored("%s is public%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""), 'green', attrs=['bold'])
+                            print(BUCKET_RESULT)
                             self.log(new_bucket_url)
                         elif bucket_response.status_code == 403 and (CONFIG['aws_access_key'] and CONFIG['aws_secret']):
                             if self.can_access_bucket(bucket_name):
                                 bucket_owner = self.get_bucket_owner(bucket_name)
-                                print("%s is authenticated%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
+                                BUCKET_RESULT = colored("%s is authenticated%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""), 'green', attrs=['bold'])
+                                print(BUCKET_RESULT)
                                 self.log(new_bucket_url)
             except:
                 pass
@@ -98,7 +101,8 @@ def listen(message, context):
                         BUCKET_QUEUE.put(bucket_url)
 
     if len(CHECKED_BUCKETS) % 100 == 0:
-        print("%s buckets checked. %s buckets found" % (len(CHECKED_BUCKETS), FOUND_COUNT))
+        CHECKED_BUCKETS_COUNT = colored('%s buckets checked. %s buckets found' % (len(CHECKED_BUCKETS), FOUND_COUNT), 'cyan')
+        print(CHECKED_BUCKETS_COUNT)
 
 
 def get_permutations(parsed_domain):
@@ -142,15 +146,18 @@ def main():
     logging.disable(logging.WARNING)
 
     if not CONFIG['aws_access_key'] or not CONFIG['aws_secret']:
-        print("Enter AWS keys in config.yaml to find even more buckets!")
+        AWS_KEY_MSG = colored('Enter AWS keys in config.yaml to find even more buckets!', 'red', 'on_yellow')
+        print(AWS_KEY_MSG)
 
     for _ in range(1, ARGS.threads):
         BucketWorker(BUCKET_QUEUE).start()
 
-    print("Waiting for certstream events - this could take a few minutes to queue up...")
+    INTRO_MSG = colored('Waiting for certstream events - this could take a few minutes to queue up...', 'magenta', attrs=['bold'])
+    print(INTRO_MSG)
     certstream.listen_for_events(listen) #blocking
 
-    print("Qutting - waiting for threads to finish up...")
+    EXIT_MSG = colored('Qutting - waiting for threads to finish up...', 'magenta', attrs=['bold'])
+    print(EXIT_MSG)
     BUCKET_QUEUE.join()
 
 
