@@ -7,6 +7,9 @@ import requests
 from requests.adapters import HTTPAdapter
 from queue import Queue
 from threading import Thread
+import colored
+from colored import stylize
+
 
 S3_URL = "http://s3-1-w.amazonaws.com"
 BUCKET_HOST = "%s.s3.amazonaws.com"
@@ -51,7 +54,7 @@ class BucketWorker(Thread):
                                 except:
                                     pass
 
-                            print("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""))
+                            print(stylize("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""), colored.fg("green_1")))
                             if ARGS.log_to_file:
                                 with open("buckets.log", "a+") as log:
                                     log.write("%s%s" % (new_bucket_url, os.linesep))
@@ -83,7 +86,7 @@ def listen(message, context):
                         BUCKET_QUEUE.put(bucket_url)
 
     if len(CHECKED_BUCKETS) % 100 == 0:
-        print("%s buckets checked. %s buckets found" % (len(CHECKED_BUCKETS), FOUND_COUNT))
+        print(stylize("%s buckets checked. %s buckets found" % (len(CHECKED_BUCKETS), FOUND_COUNT), colored.fg("dark_green_sea")))
 
 
 def get_permutations(parsed_domain):
@@ -92,7 +95,6 @@ def get_permutations(parsed_domain):
         "www-%s" % parsed_domain.domain,
         "%s-www" % parsed_domain.domain,
         "%s-%s" % (parsed_domain.subdomain, parsed_domain.domain) if parsed_domain.subdomain else "",
-        "%s-%s" % (parsed_domain.domain, parsed_domain.subdomain) if parsed_domain.subdomain else "",
         "%s-backup" % parsed_domain.domain,
         "backup-%s" % parsed_domain.domain,
         "%s-dev" % parsed_domain.domain,
@@ -101,10 +103,7 @@ def get_permutations(parsed_domain):
         "staging-%s" % parsed_domain.domain,
         "%s-test" % parsed_domain.domain,
         "test-%s" % parsed_domain.domain,
-        "%s-prod" % parsed_domain.domain,
-        "prod-%s" % parsed_domain.domain,
-        "%s-uat" % parsed_domain.domain,
-        "%s-storage" % parsed_domain.domain
+        "%s-uat" % parsed_domain.domain
     ]
 
     return filter(None, perms)
@@ -129,10 +128,10 @@ def main():
     for _ in range(1, ARGS.threads):
         BucketWorker(BUCKET_QUEUE).start()
 
-    print("Waiting for certstream events - this could take a few minutes to queue up...")
+    print(stylize("Waiting for certstream events - this could take a few minutes to queue up...", colored.fg("orange_red_1")))
     certstream.listen_for_events(listen) #blocking
 
-    print("Qutting - waiting for threads to finish up...")
+    print(stylize("Qutting - waiting for threads to finish up...", colored.fg("orange_red_1")))
     BUCKET_QUEUE.join()
 
 

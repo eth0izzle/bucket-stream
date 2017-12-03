@@ -3,6 +3,7 @@ botocore==1.8.2
 certifi==2017.11.5
 certstream==1.8
 chardet==3.0.4
+colored==1.3.5
 docutils==0.14
 idna==2.6
 jmespath==0.9.3
