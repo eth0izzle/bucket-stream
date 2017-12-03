@@ -1,4 +1,4 @@
-import os, argparse, logging
+import os, time, argparse, logging
 import yaml
 import boto3
 import certstream
@@ -29,8 +29,6 @@ class BucketWorker(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        global FOUND_COUNT
-
         while True:
             try:
                 bucket_url = self.q.get()
@@ -40,27 +38,44 @@ class BucketWorker(Thread):
                     new_bucket_url = check_response.headers["Location"]
                     bucket_response = requests.request('GET' if ARGS.only_interesting else 'HEAD', new_bucket_url, timeout=3)
 
-                    if bucket_response.status_code == 200:  # bucket is public!
-                        if not ARGS.only_interesting or (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS)):
-                            bucket_owner = None
+                    if not ARGS.only_interesting or (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS)):
+                        bucket_name = bucket_url.replace(".s3.amazonaws.com", "")
 
-                            if CONFIG['aws_access_key'] and CONFIG['aws_secret']:
-                                try:
-                                    result = S3_CLIENT.get_bucket_acl(Bucket=bucket_url.replace(".s3.amazonaws.com", ""))
-                                    bucket_owner = result['Owner']['DisplayName']
-                                except:
-                                    pass
-
-                            print("%s is public%s" % (new_bucket_url, (", owned by " + bucket_owner) if bucket_owner is not None else ""))
-                            if ARGS.log_to_file:
-                                with open("buckets.log", "a+") as log:
-                                    log.write("%s%s" % (new_bucket_url, os.linesep))
-                            FOUND_COUNT += 1
+                        if bucket_response.status_code == 200:
+                            bucket_owner = self.get_bucket_owner(bucket_name)
+                            print("%s is public%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
+                            self.log(new_bucket_url)
+                        elif bucket_response.status_code == 403 and (CONFIG['aws_access_key'] and CONFIG['aws_secret']):
+                            if self.can_access_bucket(bucket_name):
+                                bucket_owner = self.get_bucket_owner(bucket_name)
+                                print("%s is authenticated%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
+                                self.log(new_bucket_url)
             except:
                 pass
+            finally:
+                self.q.task_done()
 
-            self.q.task_done()
+    def log(self, new_bucket_url):
+        global FOUND_COUNT
+        FOUND_COUNT += 1
 
+        if ARGS.log_to_file:
+            with open("buckets.log", "a+") as log:
+                log.write("%s%s" % (new_bucket_url, os.linesep))
+
+    def get_bucket_owner(self, bucket_name):
+        try:
+            result = S3_CLIENT.get_bucket_acl(Bucket=bucket_name)
+            return result['Owner']['DisplayName']
+        except:
+            return None
+
+    def can_access_bucket(self, bucket_name):
+        try:
+            S3_CLIENT.list_objects(Bucket=bucket_name)
+            return True
+        except:
+            return False
 
 def listen(message, context):
     if message["message_type"] == "heartbeat":
@@ -125,6 +140,9 @@ def main():
 
     parser.parse_args(namespace=ARGS)
     logging.disable(logging.WARNING)
+
+    if not CONFIG['aws_access_key'] or not CONFIG['aws_secret']:
+        print("Enter AWS keys in config.yaml to find even more buckets!")
 
     for _ in range(1, ARGS.threads):
         BucketWorker(BUCKET_QUEUE).start()

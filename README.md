@@ -4,13 +4,14 @@
 
 This tool simply listens to various certificate transparency logs (via certstream) and attempts to find public S3 buckets from permutations of the certificates domain name.
 
-![Demo](https://i.imgur.com/5S92YXI.png)
+![Demo](https://i.imgur.com/B0kesTo.png)
 
 **Be responsible**. I mainly created this tool to highlight the risks associated with public S3 buckets and to put a different spin on the usual dictionary based attacks. Some quick tips if you use S3 buckets:
 
 1) Randomise your bucket names! There is no need to use `company-backup.s3.amazonaws.com`.
 2) Set appropriate permissions and audit regularly. If possible create two buckets - one for your public assets and another for private data.
 3) Be mindful about **your data**. What are suppliers, contractors and third parties doing with it? Where and how is it stored? These basic questions should be addressed in every info sec policy.
+4) Try [Amazon Macie](https://aws.amazon.com/macie/) - it will automatically classify and secure sensitive data.
 
 Thanks to my good friend David (@riskobscurity) for the idea.
 
@@ -27,7 +28,7 @@ Python 3.4+ and pip3 are required. Then just:
 
 Simply run `python3 bucket-stream.py`.
 
-If you provide AWS access and secret keys in `config.yaml` Bucket Stream will attempt to identity the buckets owner.
+If you provide AWS access and secret keys in `config.yaml` Bucket Stream will attempt to access authenticated buckets and identity the buckets owner.
 
     usage: python3 bucket-stream.py
 
