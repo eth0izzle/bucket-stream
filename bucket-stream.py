@@ -92,6 +92,7 @@ def get_permutations(parsed_domain):
         "www-%s" % parsed_domain.domain,
         "%s-www" % parsed_domain.domain,
         "%s-%s" % (parsed_domain.subdomain, parsed_domain.domain) if parsed_domain.subdomain else "",
+        "%s-%s" % (parsed_domain.domain, parsed_domain.subdomain) if parsed_domain.subdomain else "",
         "%s-backup" % parsed_domain.domain,
         "backup-%s" % parsed_domain.domain,
         "%s-dev" % parsed_domain.domain,
@@ -100,6 +101,8 @@ def get_permutations(parsed_domain):
         "staging-%s" % parsed_domain.domain,
         "%s-test" % parsed_domain.domain,
         "test-%s" % parsed_domain.domain,
+        "%s-prod" % parsed_domain.domain,
+        "prod-%s" % parsed_domain.domain,
         "%s-uat" % parsed_domain.domain
     ]
 
