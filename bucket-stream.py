@@ -103,7 +103,8 @@ def get_permutations(parsed_domain):
         "test-%s" % parsed_domain.domain,
         "%s-prod" % parsed_domain.domain,
         "prod-%s" % parsed_domain.domain,
-        "%s-uat" % parsed_domain.domain
+        "%s-uat" % parsed_domain.domain,
+        "%s-storage" % parsed_domain.domain
     ]
 
     return filter(None, perms)
