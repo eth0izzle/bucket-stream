@@ -1,2 +1,3 @@
 aws_access_key: ''
 aws_secret: ''
+slack_webhook: ''

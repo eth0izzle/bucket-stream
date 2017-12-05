@@ -42,6 +42,8 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
                            Encrypt CA (default: False)
       -t , --threads       Number of threads to spawn. More threads = more power.
                            (default: 20)
+      -s , --slack         Send found buckets to a Slack channel via Webhook.
+                           Configure in config.yaml (default: False)
 
 ## F.A.Qs
 

@@ -1,4 +1,5 @@
 import os, time, argparse, logging
+import json
 import yaml
 import boto3
 import certstream
@@ -45,11 +46,13 @@ class BucketWorker(Thread):
                             bucket_owner = self.get_bucket_owner(bucket_name)
                             print("%s is public%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
                             self.log(new_bucket_url)
+                            self.notify(new_bucket_url, bucket_owner)
                         elif bucket_response.status_code == 403 and (CONFIG['aws_access_key'] and CONFIG['aws_secret']):
                             if self.can_access_bucket(bucket_name):
                                 bucket_owner = self.get_bucket_owner(bucket_name)
                                 print("%s is authenticated%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else ""))
                                 self.log(new_bucket_url)
+                                self.notify(new_bucket_url, bucket_owner)
             except:
                 pass
             finally:
@@ -62,6 +65,13 @@ class BucketWorker(Thread):
         if ARGS.log_to_file:
             with open("buckets.log", "a+") as log:
                 log.write("%s%s" % (new_bucket_url, os.linesep))
+
+    def notify(self, new_bucket_url, bucket_owner):
+        if ARGS.slack_notify:
+            slack_message = "`%s` is public%s" % (new_bucket_url, ", owned by " + bucket_owner if bucket_owner else "")
+            resp = requests.post(CONFIG['slack_webhook'], data=json.dumps({'text': slack_message}),headers={'Content-Type': 'application/json'})
+            if resp.status_code != 200:
+                print("Something is misconfigured with --slack option. Check your webhook? Returned error:%s" % resp.status_code)
 
     def get_bucket_owner(self, bucket_name):
         try:
@@ -137,6 +147,8 @@ def main():
                         help="Number of threads to spawn. More threads = more power.")
     parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
                         help="Log found buckets to a file buckets.log")
+    parser.add_argument("-s", "--slack", dest="slack_notify", default=False, action="store_true",
+                        help="Send found S3 buckets to Slack webook")
 
     parser.parse_args(namespace=ARGS)
     logging.disable(logging.WARNING)
