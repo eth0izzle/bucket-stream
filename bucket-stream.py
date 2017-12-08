@@ -20,7 +20,7 @@ UPDATE_INTERVAL = CONFIG['update_interval']  # seconds
 RATE_LIMIT_SLEEP = CONFIG['rate_limit_sleep']  # seconds
 
 CHECKED_BUCKETS = list()
-FUND_COUNT = 0
+FOUND_COUNT = 0
 
 
 class UpdateThread(Thread):
