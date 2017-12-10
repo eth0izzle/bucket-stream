@@ -229,7 +229,6 @@ def main():
         threads.extend([BucketWorker(q) for _ in range(0, ARGS.threads)])
         threads.extend([UpdateThread(q), CertStreamThread(q)])
         [t.start() for t in threads]
-        BucketWorker(q).start()
 
         signal.pause()  # pause the main thread
     except KeyboardInterrupt:
