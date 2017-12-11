@@ -57,9 +57,11 @@ class CertStreamThread(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        cprint("Waiting for Certstream events - this could take a few minutes to queue up...",
+        while True:
+            cprint("Waiting for Certstream events - this could take a few minutes to queue up...",
                "yellow", attrs=["bold"])
-        self.c.run_forever()
+            self.c.run_forever()
+            time.sleep(10)
 
     def process(self, message, context):
         if message["message_type"] == "heartbeat":
