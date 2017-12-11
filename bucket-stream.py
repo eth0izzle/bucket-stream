@@ -1,13 +1,18 @@
-import os, time, signal, argparse, logging
+import argparse
+import logging
+import os
+import signal
+import time
+from queue import Queue
+from threading import Lock
+from threading import Thread
+
+import requests
+import tldextract
 import yaml
 from boto3.session import Session
 from certstream.core import CertStreamClient
-import tldextract
-import requests
 from requests.adapters import HTTPAdapter
-from queue import Queue
-from threading import Thread
-from threading import Lock
 from termcolor import cprint
 
 ARGS = argparse.Namespace()
@@ -19,33 +24,41 @@ QUEUE_SIZE = CONFIG['queue_size']
 UPDATE_INTERVAL = CONFIG['update_interval']  # seconds
 RATE_LIMIT_SLEEP = CONFIG['rate_limit_sleep']  # seconds
 
-CHECKED_BUCKETS = list()
 FOUND_COUNT = 0
 
 
 class UpdateThread(Thread):
     def __init__(self, q, *args, **kwargs):
         self.q = q
+        self.checked_buckets_since_last_update = 0
 
         super().__init__(*args, **kwargs)
 
     def run(self):
         while True:
-            if len(CHECKED_BUCKETS) > 1:
-                cprint("%s buckets checked, %s buckets found" % (len(CHECKED_BUCKETS), FOUND_COUNT), "cyan")
+            checked_buckets = len(self.q.checked_buckets)
 
+            if checked_buckets > 1:
+                cprint("{0} buckets checked ({1:.0f}b/s), {2} buckets found".format(
+                    checked_buckets,
+                    (checked_buckets - self.checked_buckets_since_last_update) / UPDATE_INTERVAL,
+                    FOUND_COUNT), "cyan")
+
+            self.checked_buckets_since_last_update = checked_buckets
             time.sleep(UPDATE_INTERVAL)
 
 
 class CertStreamThread(Thread):
     def __init__(self, q, *args, **kwargs):
         self.q = q
-        self.c = CertStreamClient(self.process, skip_heartbeats=True, on_open=None, on_error=None)
+        self.c = CertStreamClient(
+            self.process, skip_heartbeats=True, on_open=None, on_error=None)
 
         super().__init__(*args, **kwargs)
 
     def run(self):
-        cprint("Waiting for Certstream events - this could take a few minutes to queue up...", "yellow", attrs=["bold"])
+        cprint("Waiting for Certstream events - this could take a few minutes to queue up...",
+               "yellow", attrs=["bold"])
         self.c.run_forever()
 
     def process(self, message, context):
@@ -60,22 +73,28 @@ class CertStreamThread(Thread):
 
             for domain in set(all_domains):
                 # cut the crap
-                if not domain.startswith("*.") and "cloudflaressl" not in domain and "xn--" not in domain and domain.count("-") < 4 and domain.count(".") < 4:
+                if not domain.startswith("*.")\
+                        and "cloudflaressl" not in domain\
+                        and "xn--" not in domain\
+                        and domain.count("-") < 4\
+                        and domain.count(".") < 4:
                     for permutation in get_permutations(tldextract.extract(domain)):
-                        bucket_url = BUCKET_HOST % permutation
-
-                        if bucket_url not in CHECKED_BUCKETS:
-                            CHECKED_BUCKETS.append(bucket_url)
-                            self.q.put(bucket_url)
+                        self.q.put(BUCKET_HOST % permutation)
 
 
 class BucketQueue(Queue):
     def __init__(self, maxsize):
         self.lock = Lock()
+        self.checked_buckets = list()
         self.rate_limited = False
         self.next_yield = 0
 
         super().__init__(maxsize)
+
+    def put(self, bucket_url):
+        if bucket_url not in self.checked_buckets:
+            self.checked_buckets.append(bucket_url)
+            super().put(bucket_url)
 
     def get(self):
         with self.lock:
@@ -96,10 +115,12 @@ class BucketWorker(Thread):
         self.use_aws = CONFIG["aws_access_key"] and CONFIG["aws_secret"]
 
         if self.use_aws:
-            self.session = Session(aws_access_key_id=CONFIG["aws_access_key"], aws_secret_access_key=CONFIG["aws_secret"]).resource("s3")
+            self.session = Session(
+                aws_access_key_id=CONFIG["aws_access_key"], aws_secret_access_key=CONFIG["aws_secret"]).resource("s3")
         else:
             self.session = requests.Session()
-            self.session.mount("http://", HTTPAdapter(pool_connections=ARGS.threads, pool_maxsize=QUEUE_SIZE, max_retries=0))
+            self.session.mount(
+                "http://", HTTPAdapter(pool_connections=ARGS.threads, pool_maxsize=QUEUE_SIZE, max_retries=0))
 
         super().__init__(*args, **kwargs)
 
@@ -107,7 +128,8 @@ class BucketWorker(Thread):
         while True:
             try:
                 bucket_url = self.q.get()
-                self.__check_boto(bucket_url) if self.use_aws else self.__check_http(bucket_url)
+                self.__check_boto(
+                    bucket_url) if self.use_aws else self.__check_http(bucket_url)
             except Exception as e:
                 print(e)
                 pass
@@ -115,16 +137,22 @@ class BucketWorker(Thread):
                 self.q.task_done()
 
     def __check_http(self, bucket_url):
-        check_response = self.session.head(S3_URL, timeout=3, headers={"Host": bucket_url})
+        check_response = self.session.head(
+            S3_URL, timeout=3, headers={"Host": bucket_url})
 
-        if not ARGS.ignore_rate_limiting and (check_response.status_code == 503 and check_response.reason == "Slow Down"):
+        if not ARGS.ignore_rate_limiting\
+                and (check_response.status_code == 503 and check_response.reason == "Slow Down"):
             self.q.rate_limited = True
-            self.q.put(bucket_url)  # add it back to the bucket for re-processing
+            # add it back to the bucket for re-processing
+            self.q.put(bucket_url)
         elif check_response.status_code == 307:  # valid bucket, lets check if its public
             new_bucket_url = check_response.headers["Location"]
-            bucket_response = requests.request("GET" if ARGS.only_interesting else "HEAD", new_bucket_url, timeout=3)
+            bucket_response = requests.request(
+                "GET" if ARGS.only_interesting else "HEAD", new_bucket_url, timeout=3)
 
-            if bucket_response.status_code == 200 and (not ARGS.only_interesting or (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
+            if bucket_response.status_code == 200\
+                    and (not ARGS.only_interesting or
+                             (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
                 cprint("Found bucket '{}'".format(new_bucket_url), "green", attrs=["bold"])
                 self.__log(new_bucket_url)
 
@@ -132,28 +160,35 @@ class BucketWorker(Thread):
         bucket_name = bucket_url.replace(".s3.amazonaws.com", "")
 
         try:
-            self.session.meta.client.head_bucket(Bucket=bucket_name)  # just to check if the bucket exists. Throws NoSuchBucket exception if not
+            # just to check if the bucket exists. Throws NoSuchBucket exception if not
+            self.session.meta.client.head_bucket(Bucket=bucket_name)
 
-            if not ARGS.only_interesting or (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
+            if not ARGS.only_interesting or\
+                    (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
                 owner = None
                 acls = None
 
                 try:
-                    acl = self.session.meta.client.get_bucket_acl(Bucket=bucket_name)  # todo: also check IAM policy as it can override ACLs
+                    # todo: also check IAM policy as it can override ACLs
+                    acl = self.session.meta.client.get_bucket_acl(
+                        Bucket=bucket_name)
                     owner = acl["Owner"]["DisplayName"]
-                    acls = ". ACLs = {} | {}".format(self.__get_bucket_perms(acl, "AllUsers"), self.__get_bucket_perms(acl, "AuthenticatedUsers"))
+                    acls = ". ACLs = {} | {}".format(self.__get_group_acls(acl, "AllUsers"),
+                                                     self.__get_group_acls(acl, "AuthenticatedUsers"))
                 except:
                     acls = ". ACLS = (could not read)"
 
                 color = "green" if not owner else "magenta"
-                cprint("Found bucket '{}'. Owned by '{}'{}".format(bucket_url, owner if owner else "(unknown)", acls), color, attrs=["bold"])
+                cprint("Found bucket '{}'. Owned by '{}'{}".format(
+                    bucket_url, owner if owner else "(unknown)", acls), color, attrs=["bold"])
                 self.__log(bucket_url)
         except:
             pass
 
-    def __get_bucket_perms(self, acl, group):
+    def __get_group_acls(self, acl, group):
         group_uri = "http://acs.amazonaws.com/groups/global/%s" % group
-        perms = [g["Permission"] for g in acl["Grants"] if g["Grantee"]["Type"] == "Group" and g["Grantee"]["URI"] == group_uri]
+        perms = [g["Permission"] for g in acl["Grants"]
+                 if g["Grantee"]["Type"] == "Group" and g["Grantee"]["URI"] == group_uri]
 
         return "{}: {}".format(group, ", ".join(perms) if perms else "(none)")
 
@@ -190,8 +225,7 @@ def get_permutations(parsed_domain):
         "test-%s" % parsed_domain.domain,
         "%s-prod" % parsed_domain.domain,
         "prod-%s" % parsed_domain.domain,
-        "%s-uat" % parsed_domain.domain,
-        "%s-storage" % parsed_domain.domain
+        "%s-uat" % parsed_domain.domain
     ]
 
     return filter(None, perms)
@@ -216,10 +250,12 @@ def main():
     logging.disable(logging.WARNING)
 
     if not CONFIG["aws_access_key"] or not CONFIG["aws_secret"]:
-        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited! You might want to run with --ignore-rate-limiting", "red")
+        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited!"
+               "You might want to run with --ignore-rate-limiting", "red")
 
         if ARGS.threads > 5:
-            cprint("No AWS keys, reducing threads to 5 to help with rate limiting.", "red")
+            cprint(
+                "No AWS keys, reducing threads to 5 to help with rate limiting.", "red")
             ARGS.threads = 5
 
     threads = list()
@@ -229,11 +265,11 @@ def main():
         threads.extend([BucketWorker(q) for _ in range(0, ARGS.threads)])
         threads.extend([UpdateThread(q), CertStreamThread(q)])
         [t.start() for t in threads]
-        BucketWorker(q).start()
 
         signal.pause()  # pause the main thread
     except KeyboardInterrupt:
-        cprint("Quitting - waiting for threads to finish up...", "yellow", attrs=["bold"])
+        cprint("Quitting - waiting for threads to finish up...",
+               "yellow", attrs=["bold"])
         [t.join() for t in threads]
 
 
