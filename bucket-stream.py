@@ -1,10 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import argparse
 import logging
 import os
 import signal
+import sys
 import time
 from queue import Queue
 from threading import Lock
+from threading import Event
 from threading import Thread
 
 import requests
@@ -23,7 +28,8 @@ BUCKET_HOST = "%s.s3.amazonaws.com"
 QUEUE_SIZE = CONFIG['queue_size']
 UPDATE_INTERVAL = CONFIG['update_interval']  # seconds
 RATE_LIMIT_SLEEP = CONFIG['rate_limit_sleep']  # seconds
-
+THREADS = list()
+THREAD_EVENT = Event()
 FOUND_COUNT = 0
 
 
@@ -35,7 +41,9 @@ class UpdateThread(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        while True:
+        global THREAD_EVENT
+
+        while not THREAD_EVENT.is_set():
             checked_buckets = len(self.q.checked_buckets)
 
             if checked_buckets > 1:
@@ -45,7 +53,7 @@ class UpdateThread(Thread):
                     FOUND_COUNT), "cyan")
 
             self.checked_buckets_since_last_update = checked_buckets
-            time.sleep(UPDATE_INTERVAL)
+            THREAD_EVENT.wait(UPDATE_INTERVAL)
 
 
 class CertStreamThread(Thread):
@@ -57,11 +65,12 @@ class CertStreamThread(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        while True:
+        global THREAD_EVENT 
+        while not THREAD_EVENT.is_set():
             cprint("Waiting for Certstream events - this could take a few minutes to queue up...",
                "yellow", attrs=["bold"])
             self.c.run_forever()
-            time.sleep(10)
+            THREAD_EVENT.wait(10)
 
     def process(self, message, context):
         if message["message_type"] == "heartbeat":
@@ -99,10 +108,11 @@ class BucketQueue(Queue):
             super().put(bucket_url)
 
     def get(self):
+        global THREAD_EVENT
         with self.lock:
             t = time.monotonic()
             if self.rate_limited and t < self.next_yield:
-                time.sleep(self.next_yield - t)
+                THREAD_EVENT.wait(self.next_yield - t)
                 t = time.monotonic()
                 self.rate_limited = False
 
@@ -127,7 +137,8 @@ class BucketWorker(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        while True:
+        global THREAD_EVENT
+        while not THREAD_EVENT.is_set():
             try:
                 bucket_url = self.q.get()
                 self.__check_boto(
@@ -232,8 +243,20 @@ def get_permutations(parsed_domain):
 
     return filter(None, perms)
 
+def __signal_handler(signal, frame):
+    global THREADS, THREAD_EVENT
+    cprint("Quitting...", "yellow", attrs=["bold"])
+    THREAD_EVENT.set()
+    # Does not wait to "join" each thread.
+    # Threads are daemon (run in background) and okay to tear down immediately.
+    sys.exit(0)
+
 
 def main():
+    global THREADS
+
+    signal.signal(signal.SIGINT, __signal_handler)
+
     parser = argparse.ArgumentParser(description="Find interesting Amazon S3 Buckets by watching certificate transparency logs.",
                                      usage="python bucket-stream.py",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -252,7 +275,7 @@ def main():
     logging.disable(logging.WARNING)
 
     if not CONFIG["aws_access_key"] or not CONFIG["aws_secret"]:
-        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited!"
+        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited!  "
                "You might want to run with --ignore-rate-limiting", "red")
 
         if ARGS.threads > 5:
@@ -260,19 +283,16 @@ def main():
                 "No AWS keys, reducing threads to 5 to help with rate limiting.", "red")
             ARGS.threads = 5
 
-    threads = list()
+    THREADS = list()
 
-    try:
-        q = BucketQueue(maxsize=QUEUE_SIZE)
-        threads.extend([BucketWorker(q) for _ in range(0, ARGS.threads)])
-        threads.extend([UpdateThread(q), CertStreamThread(q)])
-        [t.start() for t in threads]
+    q = BucketQueue(maxsize=QUEUE_SIZE)
+    THREADS.extend([BucketWorker(q) for _ in range(0, ARGS.threads)])
+    THREADS.extend([UpdateThread(q), CertStreamThread(q)])
+    for t in THREADS:
+        t.daemon = True
+        t.start()
 
-        signal.pause()  # pause the main thread
-    except KeyboardInterrupt:
-        cprint("Quitting - waiting for threads to finish up...",
-               "yellow", attrs=["bold"])
-        [t.join() for t in threads]
+    signal.pause()  # pause the main thread
 
 
 if __name__ == "__main__":
