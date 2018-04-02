@@ -245,7 +245,7 @@ def get_permutations(parsed_domain):
 
 def __signal_handler(signal, frame):
     global THREADS, THREAD_EVENT
-    cprint("Quitting...", "yellow", attrs=["bold"])
+    cprint("Kill commanded received - Quitting...", "yellow", attrs=["bold"])
     THREAD_EVENT.set()
     # Does not wait to "join" each thread.
     # Threads are daemon (run in background) and okay to tear down immediately.
