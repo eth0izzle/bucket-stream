@@ -7,6 +7,7 @@ import os
 import signal
 import sys
 import time
+import json
 from queue import Queue
 from threading import Lock
 from threading import Event
@@ -114,6 +115,7 @@ class BucketQueue(Queue):
         with self.lock:
             t = time.monotonic()
             if self.rate_limited and t < self.next_yield:
+                cprint("You have hit the AWS rate limit - slowing down... (tip: enter credentials in config.yaml)", "yellow")
                 THREAD_EVENT.wait(self.next_yield - t)
                 t = time.monotonic()
                 self.rate_limited = False
@@ -158,7 +160,7 @@ class BucketWorker(Thread):
         if not ARGS.ignore_rate_limiting\
                 and (check_response.status_code == 503 and check_response.reason == "Slow Down"):
             self.q.rate_limited = True
-            # add it back to the bucket for re-processing
+            # add it back to the queue for re-processing
             self.q.put(bucket_url)
         elif check_response.status_code == 307:  # valid bucket, lets check if its public
             new_bucket_url = check_response.headers["Location"]
@@ -168,7 +170,7 @@ class BucketWorker(Thread):
             if bucket_response.status_code == 200\
                     and (not ARGS.only_interesting or
                              (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
-                cprint("Found bucket '{}'".format(new_bucket_url), "green", attrs=["bold"])
+                self.__output("Found bucket '{}'".format(new_bucket_url), "green")
                 self.__log(new_bucket_url)
 
     def __check_boto(self, bucket_url):
@@ -185,8 +187,7 @@ class BucketWorker(Thread):
 
                 try:
                     # todo: also check IAM policy as it can override ACLs
-                    acl = self.session.meta.client.get_bucket_acl(
-                        Bucket=bucket_name)
+                    acl = self.session.meta.client.get_bucket_acl(Bucket=bucket_name)
                     owner = acl["Owner"]["DisplayName"]
                     acls = ". ACLs = {} | {}".format(self.__get_group_acls(acl, "AllUsers"),
                                                      self.__get_group_acls(acl, "AuthenticatedUsers"))
@@ -194,10 +195,10 @@ class BucketWorker(Thread):
                     acls = ". ACLS = (could not read)"
 
                 color = "green" if not owner else "magenta"
-                cprint("Found bucket '{}'. Owned by '{}'{}".format(
-                    bucket_url, owner if owner else "(unknown)", acls), color, attrs=["bold"])
+                self.__output("Found bucket '{}'. Owned by '{}'{}".format(
+                    bucket_url, owner if owner else "(unknown)", acls), color)
                 self.__log(bucket_url)
-        except:
+        except Exception as e:
             pass
 
     def __get_group_acls(self, acl, group):
@@ -222,6 +223,13 @@ class BucketWorker(Thread):
             with open("buckets.log", "a+") as log:
                 log.write("%s%s" % (new_bucket_url, os.linesep))
 
+    def __output(self, line, color=None):
+        cprint(line, color, attrs=["bold"])
+
+        if CONFIG["slack_webhook"]:
+            resp = requests.post(CONFIG['slack_webhook'], data=json.dumps({'text': line}), headers={'Content-Type': 'application/json'})
+            if resp.status_code != 200:
+                cprint("Could not send to your Slack Webhook. Server returned: %s" % resp.status_code, "red")
 
 def get_permutations(domain, subdomain=None):
     perms = [
@@ -230,7 +238,7 @@ def get_permutations(domain, subdomain=None):
         "%s-www" % domain,
     ]
 
-    perms.extend([line.strip() for line in open(ARGS.permutations)])
+    perms.extend([line.strip() % domain for line in open(ARGS.permutations)])
 
     if subdomain is not None:
         perms.extend([
@@ -279,12 +287,11 @@ def main():
     logging.disable(logging.WARNING)
 
     if not CONFIG["aws_access_key"] or not CONFIG["aws_secret"]:
-        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited!  "
+        cprint("It is highly recommended to enter AWS keys in config.yaml otherwise you will be severely rate limited!"\
                "You might want to run with --ignore-rate-limiting", "red")
 
         if ARGS.threads > 5:
-            cprint(
-                "No AWS keys, reducing threads to 5 to help with rate limiting.", "red")
+            cprint("No AWS keys, reducing threads to 5 to help with rate limiting.", "red")
             ARGS.threads = 5
 
     THREADS = list()
