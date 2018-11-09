@@ -1,0 +1,11 @@
+%s-backup
+backup-%s
+%s-dev
+dev-%s
+%s-staging
+staging-%s
+%s-test
+test-%s
+%s-prod
+prod-%s
+%s-uat

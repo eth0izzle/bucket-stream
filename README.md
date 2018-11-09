@@ -4,9 +4,6 @@
 
 This tool simply listens to various certificate transparency logs (via certstream) and attempts to find public S3 buckets from permutations of the certificates domain name.
 
-Found this tool helpful? [Become a backer](https://opencollective.com/bucket-stream) and donate what you can! All proceeds will go to a mental health charity close to my heart, [Mind UK](https://www.mind.org.uk/).
-[![Backers](https://opencollective.com/bucket-stream/backers.svg?width=890)](https://opencollective.com/bucket-stream#backers)
-
 ![Demo](https://i.imgur.com/ZFkIYhD.jpg)
 
 **Be responsible**. I mainly created this tool to highlight the risks associated with public S3 buckets and to put a different spin on the usual dictionary based attacks. Some quick tips if you use S3 buckets:
@@ -51,12 +48,17 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
                             checked (default: False)
       -l, --log             Log found buckets to a file buckets.log (default:
                             False)
+      -s, --source          Data source to check for bucket permutations. Uses
+                            certificate transparency logs if not specified.
+                            (default: None)
+      -p, --permutations    Path of file containing a list of permutations to try
+                            (see permutations/ dir). (default: permutations\default.txt)
 
 ## F.A.Qs
 
 - **Nothing appears to be happening**
 
-   Patience! Sometimes certificate transparency logs can be quiet for a few minutes. Ideally provide AWS secrets in `config.yaml` is this greatly speeds up the checking speed.
+   Patience! Sometimes certificate transparency logs can be quiet for a few minutes. Ideally provide AWS secrets in `config.yaml` as this greatly speeds up the checking rate.
 
 - **I found something highly confidential**
 

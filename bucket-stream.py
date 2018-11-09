@@ -65,7 +65,7 @@ class CertStreamThread(Thread):
         super().__init__(*args, **kwargs)
 
     def run(self):
-        global THREAD_EVENT 
+        global THREAD_EVENT
         while not THREAD_EVENT.is_set():
             cprint("Waiting for Certstream events - this could take a few minutes to queue up...",
                "yellow", attrs=["bold"])
@@ -89,7 +89,9 @@ class CertStreamThread(Thread):
                         and "xn--" not in domain\
                         and domain.count("-") < 4\
                         and domain.count(".") < 4:
-                    for permutation in get_permutations(tldextract.extract(domain)):
+
+                    parts = tldextract.extract(domain)
+                    for permutation in get_permutations(parts.domain, parts.subdomain):
                         self.q.put(BUCKET_HOST % permutation)
 
 
@@ -221,35 +223,33 @@ class BucketWorker(Thread):
                 log.write("%s%s" % (new_bucket_url, os.linesep))
 
 
-def get_permutations(parsed_domain):
+def get_permutations(domain, subdomain=None):
     perms = [
-        "%s" % parsed_domain.domain,
-        "www-%s" % parsed_domain.domain,
-        "%s-www" % parsed_domain.domain,
-        "%s-%s" % (parsed_domain.subdomain, parsed_domain.domain) if parsed_domain.subdomain else "",
-        "%s-%s" % (parsed_domain.domain, parsed_domain.subdomain) if parsed_domain.subdomain else "",
-        "%s-backup" % parsed_domain.domain,
-        "backup-%s" % parsed_domain.domain,
-        "%s-dev" % parsed_domain.domain,
-        "dev-%s" % parsed_domain.domain,
-        "%s-staging" % parsed_domain.domain,
-        "staging-%s" % parsed_domain.domain,
-        "%s-test" % parsed_domain.domain,
-        "test-%s" % parsed_domain.domain,
-        "%s-prod" % parsed_domain.domain,
-        "prod-%s" % parsed_domain.domain,
-        "%s-uat" % parsed_domain.domain
+        "%s" % domain,
+        "www-%s" % domain,
+        "%s-www" % domain,
     ]
+
+    perms.extend([line.strip() for line in open(ARGS.permutations)])
+
+    if subdomain is not None:
+        perms.extend([
+            "%s-%s" % (subdomain, domain) if subdomain else "",
+            "%s-%s" % (domain, subdomain) if subdomain else ""
+        ])
 
     return filter(None, perms)
 
-def __signal_handler(signal, frame):
-    global THREADS, THREAD_EVENT
+
+def stop():
+    global  THREAD_EVENT
     cprint("Kill commanded received - Quitting...", "yellow", attrs=["bold"])
     THREAD_EVENT.set()
-    # Does not wait to "join" each thread.
-    # Threads are daemon (run in background) and okay to tear down immediately.
     sys.exit(0)
+
+
+def __signal_handler(signal, frame):
+    stop()
 
 
 def main():
@@ -270,6 +270,10 @@ def main():
                         help="If you ignore rate limits not all buckets will be checked")
     parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
                         help="Log found buckets to a file buckets.log")
+    parser.add_argument("-s", "--source", dest="source", default=None,
+                        help="Data source to check for bucket permutations. Uses certificate transparency logs if not specified.")
+    parser.add_argument("-p", "--permutations", dest="permutations", default="permutations\default.txt",
+                        help="Path of file containing a list of permutations to try (see permutations/ dir).")
 
     parser.parse_args(namespace=ARGS)
     logging.disable(logging.WARNING)
@@ -285,15 +289,33 @@ def main():
 
     THREADS = list()
 
+    cprint("Starting bucket-stream with {0} threads. Loaded {1} permutations."\
+        .format(ARGS.threads, len([x for x in get_permutations("")])), "green")
+
     q = BucketQueue(maxsize=QUEUE_SIZE)
     THREADS.extend([BucketWorker(q) for _ in range(0, ARGS.threads)])
-    THREADS.extend([UpdateThread(q), CertStreamThread(q)])
+    THREADS.extend([UpdateThread(q)])
+
+    if ARGS.source is None:
+        THREADS.extend([CertStreamThread(q)])
+    else:
+        for line in open(ARGS.source):
+            for permutation in get_permutations(line.strip()):
+                q.put(BUCKET_HOST % permutation)
+
     for t in THREADS:
         t.daemon = True
         t.start()
 
-    signal.pause()  # pause the main thread
+    while True:
+        try:
+            signal.pause()
+        except AttributeError:
+            # signal.pause() not implemented on windows
+            while not THREAD_EVENT.is_set():
+                time.sleep(1)
 
+        stop()
 
 if __name__ == "__main__":
     main()

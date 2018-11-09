@@ -1,5 +1,5 @@
 aws_access_key: ''
 aws_secret: ''
 queue_size: 100
-update_interval: 5
-rate_limit_sleep: 3
+update_interval: 30
+rate_limit_sleep: 5
