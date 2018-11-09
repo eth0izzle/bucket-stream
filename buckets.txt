@@ -1,3 +1,0 @@
-wingscap
-mobile
-svn
