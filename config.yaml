@@ -1,5 +1,5 @@
-aws_access_key: 'AKIAJGM6HX7Y35JOYJ6A'
-aws_secret: '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'
+aws_access_key: ''
+aws_secret: ''
 queue_size: 100
 update_interval: 30
 rate_limit_sleep: 10
