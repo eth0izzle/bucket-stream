@@ -280,7 +280,7 @@ def main():
                         help="Log found buckets to a file buckets.log")
     parser.add_argument("-s", "--source", dest="source", default=None,
                         help="Data source to check for bucket permutations. Uses certificate transparency logs if not specified.")
-    parser.add_argument("-p", "--permutations", dest="permutations", default="permutations\default.txt",
+    parser.add_argument("-p", "--permutations", dest="permutations", default="permutations/default.txt",
                         help="Path of file containing a list of permutations to try (see permutations/ dir).")
 
     parser.parse_args(namespace=ARGS)
