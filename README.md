@@ -1,3 +1,17 @@
+### CHANGES FROM ORIGINAL
+
+Now this script will log all buckets found with keywords from keywords.txt only, by default, and display the bucket address, owner, permissions, and keywords found in the bucket, without adding any arguments. So you will run the program as:
+
+```
+python bucket-stream.py
+```
+
+And the log output file will look like:
+
+```
+example.s3.amazonaws.com | OWNER: admin | . ACLs = AllUsers: READ, READ_ACP | AuthenticatedUsers: (none) | Keyword: .pdf
+```
+
 # Bucket Stream
 
 **Find interesting Amazon S3 Buckets by watching certificate transparency logs.**
@@ -37,7 +51,7 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
     optional arguments:
       -h, --help            Show this help message and exit
       --only-interesting    Only log 'interesting' buckets whose contents match
-                            anything within keywords.txt (default: False)
+                            anything within keywords.txt (default: True)
       --skip-lets-encrypt   Skip certs (and thus listed domains) issued by Let's
                             Encrypt CA (default: False)
       -t , --threads        Number of threads to spawn. More threads = more power.
@@ -47,7 +61,7 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
                             If you ignore rate limits not all buckets will be
                             checked (default: False)
       -l, --log             Log found buckets to a file buckets.log (default:
-                            False)
+                            True)
       -s, --source          Data source to check for bucket permutations. Uses
                             certificate transparency logs if not specified.
                             (default: None)
