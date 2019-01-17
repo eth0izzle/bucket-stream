@@ -127,6 +127,10 @@ class BucketQueue(Queue):
 
 class BucketWorker(Thread):
     def __init__(self, q, *args, **kwargs):
+
+        # defining new found keyword list
+        self.newKey = []
+
         self.q = q
         self.use_aws = CONFIG["aws_access_key"] and CONFIG["aws_secret"]
 
@@ -179,7 +183,7 @@ class BucketWorker(Thread):
         try:
             # just to check if the bucket exists. Throws NoSuchBucket exception if not
             self.session.meta.client.head_bucket(Bucket=bucket_name)
-
+            
             if not ARGS.only_interesting or\
                     (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
                 owner = None
@@ -197,7 +201,16 @@ class BucketWorker(Thread):
                 color = "green" if not owner else "magenta"
                 self.__output("Found bucket '{}'. Owned by '{}'{}".format(
                     bucket_url, owner if owner else "(unknown)", acls), color)
-                self.__log(bucket_url)
+
+                # we are only logging buckest with keywords now, so we commented this out
+                #self.__log(bucket_url + '\n')
+
+            # checks if keyword in bucket boolean is True
+            if ARGS.only_interesting or\
+                    (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
+                for i in range(len(self.newKey)):
+                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | Keyword: ' + self.newKey[i] + '\n')
+
         except Exception as e:
             pass
 
@@ -209,8 +222,18 @@ class BucketWorker(Thread):
         return "{}: {}".format(group, ", ".join(perms) if perms else "(none)")
 
     def __bucket_contains_any_keywords(self, bucket_name):
+
+        # resets list to none
+        self.newKey = []
+
         try:
             objects = [o.key for o in self.session.Bucket(bucket_name).objects.all()]
+
+            # finds keywords in bucket and adds them to list
+            for keyword in KEYWORDS:
+                if keyword in ",".join(objects):
+                    self.newKey.append(keyword)
+
             return any(keyword in ",".join(objects) for keyword in KEYWORDS)
         except:
             return False
@@ -268,7 +291,7 @@ def main():
     parser = argparse.ArgumentParser(description="Find interesting Amazon S3 Buckets by watching certificate transparency logs.",
                                      usage="python bucket-stream.py",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=False,
+    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=True,
                         help="Only log 'interesting' buckets whose contents match anything within keywords.txt")
     parser.add_argument("--skip-lets-encrypt", action="store_true", dest="skip_lets_encrypt", default=False,
                         help="Skip certs (and thus listed domains) issued by Let's Encrypt CA")
@@ -276,7 +299,7 @@ def main():
                         help="Number of threads to spawn. More threads = more power. Limited to 5 threads if unauthenticated.")
     parser.add_argument("--ignore-rate-limiting", action="store_true", dest="ignore_rate_limiting", default=False,
                         help="If you ignore rate limits not all buckets will be checked")
-    parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
+    parser.add_argument("-l", "--log", dest="log_to_file", default=True, action="store_true",
                         help="Log found buckets to a file buckets.log")
     parser.add_argument("-s", "--source", dest="source", default=None,
                         help="Data source to check for bucket permutations. Uses certificate transparency logs if not specified.")
