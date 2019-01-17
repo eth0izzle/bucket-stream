@@ -202,14 +202,14 @@ class BucketWorker(Thread):
                 self.__output("Found bucket '{}'. Owned by '{}'{}".format(
                     bucket_url, owner if owner else "(unknown)", acls), color)
 
-                # we are only logging buckest with keywords now, so we commented this out
+                # we are only logging buckets with keywords now, so we commented this out
                 #self.__log(bucket_url + '\n')
 
             # checks if keyword in bucket boolean is True
             if ARGS.only_interesting or\
                     (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
-                for i in range(len(self.newKey)):
-                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + self.newKey[i] + '\n')
+                for i in self.newKey:
+                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + i + '\n')
 
         except Exception as e:
             pass
