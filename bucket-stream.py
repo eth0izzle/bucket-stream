@@ -209,7 +209,7 @@ class BucketWorker(Thread):
             if ARGS.only_interesting or\
                     (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
                 for i in range(len(self.newKey)):
-                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | Keyword: ' + self.newKey[i] + '\n')
+                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + self.newKey[i] + '\n')
 
         except Exception as e:
             pass
