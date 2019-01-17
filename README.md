@@ -9,7 +9,7 @@ python bucket-stream.py
 And the log output file will look like:
 
 ```
-example.s3.amazonaws.com | OWNER: admin | . ACLs = AllUsers: READ, READ_ACP | AuthenticatedUsers: (none) | Keyword: .pdf
+example.s3.amazonaws.com | OWNER: admin | . ACLs = AllUsers: READ, READ_ACP | AuthenticatedUsers: (none) | KEYWORD: .pdf
 ```
 
 # Bucket Stream
