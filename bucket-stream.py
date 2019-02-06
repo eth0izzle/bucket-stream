@@ -203,13 +203,13 @@ class BucketWorker(Thread):
                     bucket_url, owner if owner else "(unknown)", acls), color)
 
                 # we are only logging buckets with keywords now, so we commented this out
-                #self.__log(bucket_url + '\n')
+                #self.__log(bucket_url)
 
             # checks if keyword in bucket boolean is True
             if ARGS.only_interesting or\
                     (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
                 for i in range(len(self.newKey)):
-                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + self.newKey[i] + '\n')
+                    self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + self.newKey[i])
 
         except Exception as e:
             pass
