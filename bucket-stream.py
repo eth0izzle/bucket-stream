@@ -128,8 +128,9 @@ class BucketQueue(Queue):
 class BucketWorker(Thread):
     def __init__(self, q, *args, **kwargs):
 
-        # defining new found keyword list
+        ## initializing new found keyword list
         self.newKey = []
+        ##----------
 
         self.q = q
         self.use_aws = CONFIG["aws_access_key"] and CONFIG["aws_secret"]
@@ -152,12 +153,17 @@ class BucketWorker(Thread):
                 self.__check_boto(
                     bucket_url) if self.use_aws else self.__check_http(bucket_url)
             except Exception as e:
-                print(e)
+                print(e) # debug
                 pass
             finally:
                 self.q.task_done()
 
     def __check_http(self, bucket_url):
+
+        ## resets list to none
+        self.newkey = []
+        ##----------
+
         check_response = self.session.head(
             S3_URL, timeout=3, headers={"Host": bucket_url})
 
@@ -171,11 +177,22 @@ class BucketWorker(Thread):
             bucket_response = requests.request(
                 "GET" if ARGS.only_interesting else "HEAD", new_bucket_url, timeout=3)
 
+            ## only print if no keyword argument
             if bucket_response.status_code == 200\
-                    and (not ARGS.only_interesting or
-                             (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS))):
+                    and (not ARGS.only_interesting):
                 self.__output("Found bucket '{}'".format(new_bucket_url), "green")
                 self.__log(new_bucket_url)
+
+            # checks if keyword in bucket boolean is True and writes bucket+data to log file
+            if bucket_response.status_code == 200\
+                    and (ARGS.only_interesting and any(keyword in bucket_response.text for keyword in KEYWORDS)):
+                self.__output("Found bucket '{}'".format(new_bucket_url), "green")
+                for keyword in KEYWORDS:
+                    if keyword in bucket_response.text:
+                        self.newkey.append(keyword)
+                for i in range(len(self.newkey)):
+                    self.__log(new_bucket_url + ' | KEYWORD: ' + self.newkey[i])
+            ##----------
 
     def __check_boto(self, bucket_url):
         bucket_name = bucket_url.replace(".s3.amazonaws.com", "")
@@ -184,8 +201,8 @@ class BucketWorker(Thread):
             # just to check if the bucket exists. Throws NoSuchBucket exception if not
             self.session.meta.client.head_bucket(Bucket=bucket_name)
             
-            if not ARGS.only_interesting or\
-                    (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
+            ## only print if no keyword argument
+            if not ARGS.only_interesting:
                 owner = None
                 acls = None
 
@@ -201,15 +218,29 @@ class BucketWorker(Thread):
                 color = "green" if not owner else "magenta"
                 self.__output("Found bucket '{}'. Owned by '{}'{}".format(
                     bucket_url, owner if owner else "(unknown)", acls), color)
+                self.__log(bucket_url)
+            ##----------
 
-                # we are only logging buckets with keywords now, so we commented this out
-                #self.__log(bucket_url)
+            ## checks if keyword in bucket boolean is True and writes bucket+data to log file
+            if (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
+                owner = 'No Data'
+                acls = 'No Data'
 
-            # checks if keyword in bucket boolean is True
-            if ARGS.only_interesting or\
-                    (ARGS.only_interesting and self.__bucket_contains_any_keywords(bucket_name)):
+                try:
+                    # todo: also check IAM policy as it can override ACLs
+                    acl = self.session.meta.client.get_bucket_acl(Bucket=bucket_name)
+                    owner = acl["Owner"]["DisplayName"]
+                    acls = ". ACLs = {} | {}".format(self.__get_group_acls(acl, "AllUsers"),
+                                                     self.__get_group_acls(acl, "AuthenticatedUsers"))
+                except:
+                    acls = ". ACLS = (could not read)"
+
+                color = "green" if owner == "No Data" else "magenta"
+                self.__output("Found bucket '{}'. Owned by '{}'{}".format(
+                    bucket_url, owner if owner else "(unknown)", acls), color)
                 for i in range(len(self.newKey)):
                     self.__log(bucket_url + ' | OWNER: ' + owner + ' | ' + acls + ' | KEYWORD: ' + self.newKey[i])
+            ##----------
 
         except Exception as e:
             pass
@@ -223,16 +254,18 @@ class BucketWorker(Thread):
 
     def __bucket_contains_any_keywords(self, bucket_name):
 
-        # resets list to none
+        ## resets list to none
         self.newKey = []
+        ##----------
 
         try:
             objects = [o.key for o in self.session.Bucket(bucket_name).objects.all()]
 
-            # finds keywords in bucket and adds them to list
+            ## finds keywords in bucket and adds them to list
             for keyword in KEYWORDS:
                 if keyword in ",".join(objects):
                     self.newKey.append(keyword)
+            ##----------
 
             return any(keyword in ",".join(objects) for keyword in KEYWORDS)
         except:
@@ -291,7 +324,7 @@ def main():
     parser = argparse.ArgumentParser(description="Find interesting Amazon S3 Buckets by watching certificate transparency logs.",
                                      usage="python bucket-stream.py",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=True,
+    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=True, # default changed to True
                         help="Only log 'interesting' buckets whose contents match anything within keywords.txt")
     parser.add_argument("--skip-lets-encrypt", action="store_true", dest="skip_lets_encrypt", default=False,
                         help="Skip certs (and thus listed domains) issued by Let's Encrypt CA")
@@ -299,7 +332,7 @@ def main():
                         help="Number of threads to spawn. More threads = more power. Limited to 5 threads if unauthenticated.")
     parser.add_argument("--ignore-rate-limiting", action="store_true", dest="ignore_rate_limiting", default=False,
                         help="If you ignore rate limits not all buckets will be checked")
-    parser.add_argument("-l", "--log", dest="log_to_file", default=True, action="store_true",
+    parser.add_argument("-l", "--log", dest="log_to_file", default=True, action="store_true", #default changed to True
                         help="Log found buckets to a file buckets.log")
     parser.add_argument("-s", "--source", dest="source", default=None,
                         help="Data source to check for bucket permutations. Uses certificate transparency logs if not specified.")
@@ -349,3 +382,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
