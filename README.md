@@ -11,7 +11,6 @@ And the log output file will look like:
 ```
 example.s3.amazonaws.com | OWNER: admin | . ACLs = AllUsers: READ, READ_ACP | AuthenticatedUsers: (none) | KEYWORD: .pdf
 ```
-**TO FIX**: Some inconsistencies with returning buckets (not getting all keywords). Only works when using AWS Key Secret.
 
 
 # Bucket Stream
