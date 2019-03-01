@@ -37,7 +37,7 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
     optional arguments:
       -h, --help            Show this help message and exit
       --only-interesting    Only log 'interesting' buckets whose contents match
-                            anything within keywords.txt (default: True)
+                            anything within keywords.txt (default: False)
       --skip-lets-encrypt   Skip certs (and thus listed domains) issued by Let's
                             Encrypt CA (default: False)
       -t , --threads        Number of threads to spawn. More threads = more power.
@@ -47,7 +47,7 @@ If you provide AWS access and secret keys in `config.yaml` Bucket Stream will at
                             If you ignore rate limits not all buckets will be
                             checked (default: False)
       -l, --log             Log found buckets to a file buckets.log (default:
-                            True)
+                            False)
       -s, --source          Data source to check for bucket permutations. Uses
                             certificate transparency logs if not specified.
                             (default: None)
