@@ -153,7 +153,7 @@ class BucketWorker(Thread):
                 self.__check_boto(
                     bucket_url) if self.use_aws else self.__check_http(bucket_url)
             except Exception as e:
-                print(e) # debug
+                print(e)
                 pass
             finally:
                 self.q.task_done()
@@ -324,7 +324,7 @@ def main():
     parser = argparse.ArgumentParser(description="Find interesting Amazon S3 Buckets by watching certificate transparency logs.",
                                      usage="python bucket-stream.py",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=False, # default changed to True
+    parser.add_argument("--only-interesting", action="store_true", dest="only_interesting", default=False,
                         help="Only log 'interesting' buckets whose contents match anything within keywords.txt")
     parser.add_argument("--skip-lets-encrypt", action="store_true", dest="skip_lets_encrypt", default=False,
                         help="Skip certs (and thus listed domains) issued by Let's Encrypt CA")
@@ -332,7 +332,7 @@ def main():
                         help="Number of threads to spawn. More threads = more power. Limited to 5 threads if unauthenticated.")
     parser.add_argument("--ignore-rate-limiting", action="store_true", dest="ignore_rate_limiting", default=False,
                         help="If you ignore rate limits not all buckets will be checked")
-    parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true", #default changed to True
+    parser.add_argument("-l", "--log", dest="log_to_file", default=False, action="store_true",
                         help="Log found buckets to a file buckets.log")
     parser.add_argument("-s", "--source", dest="source", default=None,
                         help="Data source to check for bucket permutations. Uses certificate transparency logs if not specified.")
