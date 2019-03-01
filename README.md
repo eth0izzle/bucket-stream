@@ -1,18 +1,3 @@
-### CHANGES FROM ORIGINAL
-
-Now this script will log all buckets found with keywords from keywords.txt only, by default, and display the bucket address, owner, permissions, and keywords found in the bucket, without adding any arguments. So you will run the program as:
-
-```
-python bucket-stream.py
-```
-
-And the log output file will look like:
-
-```
-example.s3.amazonaws.com | OWNER: admin | . ACLs = AllUsers: READ, READ_ACP | AuthenticatedUsers: (none) | KEYWORD: .pdf
-```
-
-
 # Bucket Stream
 
 **Find interesting Amazon S3 Buckets by watching certificate transparency logs.**
