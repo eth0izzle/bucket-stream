@@ -10,7 +10,7 @@ multidict==3.3.2
 pipdeptree==0.10.1
 pyaml==17.10.0
 python-dateutil==2.6.1
-PyYAML==3.12
+PyYAML==5.1
 requests==2.18.4
 requests-file==1.4.2
 s3transfer==0.1.11
