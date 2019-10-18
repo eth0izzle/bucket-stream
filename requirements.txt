@@ -17,5 +17,5 @@ s3transfer==0.1.11
 six==1.11.0
 termcolor==1.1.0
 tldextract==2.2.0
-urllib3==1.22
+urllib3==1.24.2
 websocket-client==0.44.0
