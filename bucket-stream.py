@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+PY2 = sys.version_info[0] == 2
+PY3 = (sys.version_info[0] >= 3)
+
+#import queue
+if PY2:
+    import Queue as queue
+else:  # PY3
+    import queue
+
 import argparse
 import logging
 import os
 import signal
-import sys
 import time
 import json
-from queue import Queue
 from threading import Lock
 from threading import Event
 from threading import Thread
@@ -96,7 +104,7 @@ class CertStreamThread(Thread):
                         self.q.put(BUCKET_HOST % permutation)
 
 
-class BucketQueue(Queue):
+class BucketQueue(queue.Queue):
     def __init__(self, maxsize):
         self.lock = Lock()
         self.checked_buckets = list()
