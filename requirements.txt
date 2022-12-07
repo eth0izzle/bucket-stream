@@ -1,6 +1,6 @@
 boto3==1.4.8
 botocore==1.8.2
-certifi==2017.11.5
+certifi==2022.12.7
 certstream==1.8
 chardet==3.0.4
 docutils==0.14
