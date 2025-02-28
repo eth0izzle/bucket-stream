@@ -1,3 +1,5 @@
+# 🚨 Bucket Stream is no longer maintained. If you need support or consultation for your red teaming endeavours, drop me an e-mail paul@darkport.co.uk 🚨
+
 # Bucket Stream
 
 **Find interesting Amazon S3 Buckets by watching certificate transparency logs.**
